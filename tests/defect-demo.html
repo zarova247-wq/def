@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>Defect demo</title></head>
+<body>
+<h1>Воспроизведение дефекта «addEventListener при каждом render + innerHTML»</h1>
+<p>Откройте DevTools → Console. Один клик по любой строке — счётчик возрастёт 3 раза.</p>
+<div id="list"></div>
+<script>
+  const items = [
+    { code: 'LAB-5012' },
+    { code: 'LAB-5013' },
+    { code: '<img src=x onerror="alert(1)">' }  // потенциальный XSS через innerHTML
+  ];
+  let calls = 0;
+
+  function renderBad() {
+    const list = document.getElementById('list');
+    list.innerHTML = items
+      .map(i => '<div class="item" style="padding:4px;cursor:pointer">' + i.code + '</div>')
+      .join('');
+    list.querySelectorAll('.item').forEach(el => {
+      el.addEventListener('click', () => { calls++; console.log('click total =', calls); });
+    });
+  }
+
+  renderBad(); renderBad(); renderBad();  // три рендера
+  document.getElementById('list')
+          .addEventListener('click', () => console.log('calls =', calls));
+</script>
+</body></html>

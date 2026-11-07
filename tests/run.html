@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>P06 — автотесты</title>
+<style>
+  body { font-family: system-ui, sans-serif; }
+  .ok   { color: #070; }
+  .fail { color: #b00; }
+  iframe { width: 100%; height: 420px; border: 1px solid #ccc; }
+  pre { background: #fafafa; border: 1px solid #ccc; padding: .5rem; }
+</style>
+</head>
+<body>
+<iframe id="fr" src="../index.html"></iframe>
+<pre id="out">Running…</pre>
+
+<script>
+window.addEventListener('load', async () => {
+  const fr = document.getElementById('fr');
+  const w  = fr.contentWindow;
+  const d  = fr.contentDocument;
+  const tick = () => new Promise(r => setTimeout(r, 30));
+  const results = [];
+  function eq(name, expected, actual) {
+    const ok = JSON.stringify(expected) === JSON.stringify(actual);
+    results.push({ name, ok, expected, actual });
+  }
+  function fireSubmit() {
+    d.getElementById('search-form')
+     .dispatchEvent(new w.Event('submit', { cancelable: true, bubbles: true }));
+  }
+  function setFilter(v) {
+    const f = d.getElementById('filter');
+    f.value = v;
+    f.dispatchEvent(new w.Event('change', { bubbles: true }));
+  }
+
+  d.getElementById('query').value = 'LAB-5012';
+  fireSubmit(); await tick();
+  eq('T1 search LAB-5012 → 1', 1,
+     d.querySelectorAll('#orders-list li.order').length);
+
+  d.getElementById('query').value = ''; fireSubmit(); await tick();
+  setFilter('READY'); await tick();
+  eq('T2 filter READY → 2', 2,
+     d.querySelectorAll('#orders-list li.order').length);
+  eq('T2b все READY в списке', true,
+     [...d.querySelectorAll('#orders-list li.order strong')]
+       .every(el => el.textContent === 'LAB-5012' || el.textContent === 'LAB-5014'));
+
+  setFilter('ALL'); d.getElementById('query').value = 'LAB-9999';
+  fireSubmit(); await tick();
+  const emptyEl = d.getElementById('empty');
+  eq('T3 пусто: hidden=false', false, emptyEl.hidden);
+  eq('T3b в тексте есть запрос', true, emptyEl.textContent.includes('LAB-9999'));
+
+  const XSS = '<img src=x onerror=alert(1)>';
+  d.getElementById('query').value = XSS; fireSubmit(); await tick();
+  eq('T4 XSS отсутствует как элемент', null, d.querySelector('#empty img'));
+  eq('T4b XSS-строка видна как текст', true,
+     d.getElementById('empty').textContent.includes(XSS));
+
+  d.getElementById('query').value = ''; fireSubmit(); await tick();
+  const before = w.__lab.log().render;
+  w.__lab.render(); w.__lab.render(); w.__lab.render();
+  eq('T5 render ×3 увеличил счётчик', before + 3, w.__lab.log().render);
+  const li = d.querySelector('#orders-list li.order');
+  const handlersBefore = JSON.stringify(w.__lab.log().handlers);
+  li.click(); await tick();
+  const h = w.__lab.log().handlers;
+  eq('T5b один клик — один list-click',
+     true, typeof h['list-click'] === 'number' && h['list-click'] === 1);
+
+  d.querySelector('#orders-list li.order[data-id="5013"]').click();
+  await tick();
+  const v1 = w.__lab.getState().orders.find(o => o.id === 5013).version;
+  d.querySelector('button.transition-btn[data-id="5013"]').click();
+  await tick();
+  const v2 = w.__lab.getState().orders.find(o => o.id === 5013).version;
+  eq('T6 версия увеличилась ровно на 1', v1 + 1, v2);
+  eq('T6b статус ACCEPTED → READY', 'READY',
+     w.__lab.getState().orders.find(o => o.id === 5013).status);
+
+  d.querySelector('#orders-list li.order[data-id="5014"]').click();
+  await tick();
+  const btn14 = d.querySelector('button.transition-btn[data-id="5014"]');
+  const vBefore = w.__lab.getState().orders.find(o => o.id === 5014).version;
+  w.__lab.silentBump(5014);            
+  btn14.click(); await tick();
+  eq('T7 версия не изменилась (rejected)',
+     vBefore + 1, w.__lab.getState().orders.find(o => o.id === 5014).version);
+  eq('T7b показана ошибка «Устаревшая»',true, d.getElementById('global-message').textContent.includes('Устаревшая'));
+
+d.querySelector('#orders-list li.order[data-id="5016"]').click();
+await tick();
+const dis = d.querySelector('#card button[disabled]');
+eq('T8 ISSUED → есть disabled-кнопка', true, !!dis);
+const desc = dis && dis.getAttribute('aria-describedby');
+eq('T8b есть объяснение причины',
+   true, !!(desc && d.getElementById(desc)));
+
+d.getElementById('query').value = 'LAB-5012'; fireSubmit(); await tick();
+eq('T9 фокус на поле поиска', d.getElementById('query'), d.activeElement);
+
+eq('T10 URL iframe не менялся', 'about:srcdoc',
+   (fr.contentWindow.location.href || 'about:srcdoc').split('#')[0]
+     .replace(/^file:.*$/, 'FILE'));
+
+const out = document.getElementById('out');
+out.textContent = results.map(r =>
+  (r.ok ? 'PASS ' : 'FAIL ') + r.name +
+  (r.ok ? '' : '   expected=' + JSON.stringify(r.expected) +
+                ' actual=' + JSON.stringify(r.actual))
+).join('\n') + '\n\n' +
+'Итог: ' + results.filter(r => r.ok).length + '/' + results.length + ' PASS';
+});
+</script>
+</body>
+</html>

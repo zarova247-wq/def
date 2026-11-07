@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>ПВЗ</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 1rem; max-width: 1100px; }
+  .layout { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+  .panel { border: 1px solid #ccc; padding: .75rem; border-radius: .5rem; }
+  .controls { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-bottom: .5rem; }
+  ul.orders { list-style: none; padding: 0; margin: 0; }
+  li.order { padding: .5rem; border-bottom: 1px solid #eee; cursor: pointer; }
+  li.order[aria-selected="true"] { background: #eef; }
+  li.order:focus { outline: 2px solid #06c; outline-offset: -2px; }
+  .empty { color: #666; font-style: italic; }
+  [role="alert"] { color: #b00; margin-left: .5rem; }
+  input.error { border: 2px solid #b00; }
+  .transitions button { margin: .25rem .25rem .25rem 0; }
+  .stale { color: #900; font-size: .9em; }
+  .log { font-size: .8em; color: #444; white-space: pre-wrap; background: #fafafa;
+         border: 1px dashed #ccc; padding: .5rem; border-radius: .25rem; max-height: 220px;
+         overflow: auto; }
+  .msg { padding: .5rem; background: #efe; border: 1px solid #0a0; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<h1>ПВЗ доставки</h1>
+<p id="global-message" class="msg" role="status" aria-live="polite"></p>
+
+<form id="search-form" class="controls" novalidate>
+  <label for="query">Поиск</label>
+  <input id="query" name="query" type="search" autocomplete="off"
+         aria-describedby="query-error">
+  <span id="query-error" role="alert"></span>
+
+  <label for="filter">Статус</label>
+  <select id="filter" name="filter">
+    <option>ALL</option><option>READY</option><option>ACCEPTED</option>
+    <option>CHECK</option><option>ISSUED</option><option>CANCELLED</option>
+  </select>
+
+  <label for="sort">Сортировка суммы</label>
+  <select id="sort" name="sort">
+    <option value="none">—</option>
+    <option value="asc">по возрастанию</option>
+    <option value="desc">по убыванию</option>
+  </select>
+
+  <button type="submit">Найти</button>
+</form>
+
+<div class="layout">
+  <section class="panel">
+    <h2>Заказы</h2>
+    <ul id="orders-list" class="orders" role="listbox" aria-label="Список заказов"></ul>
+    <p id="empty" class="empty" hidden></p>
+  </section>
+
+  <section class="panel" id="card" aria-live="polite">
+    <h2>Карточка</h2>
+    <p id="card-body" class="empty">Выберите заказ</p>
+  </section>
+</div>
+
+<section class="panel" style="margin-top:1rem">
+  <h2>Счётчик / лог вызовов</h2>
+  <pre id="log" class="log"></pre>
+</section>
+
+<script src="orders.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
